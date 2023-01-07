@@ -1,7 +1,7 @@
 
 package me.angrybyte.numberpicker.view;
 
-import android.annotation.TargetApi;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.BlurMaskFilter;
@@ -14,10 +14,10 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Handler;
-import android.support.annotation.FloatRange;
-import android.support.annotation.IntDef;
-import android.support.annotation.IntRange;
-import android.support.annotation.NonNull;
+import androidx.annotation.FloatRange;
+import androidx.annotation.IntDef;
+import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -58,8 +58,8 @@ public class ActualNumberPicker extends View {
     private static final int CONTROL_TEXT = 0xAA;
     private static final int[] STATE_NORMAL = new int[] {};
 
-    private Rect mTextBounds = new Rect(0, 0, 0, 0);
-    private Point mTextDimens = new Point(0, 0);
+    private final Rect mTextBounds = new Rect(0, 0, 0, 0);
+    private final Point mTextDimens = new Point(0, 0);
     private TextPaint mTextPaint;
     private float mTextSize = -1.0f;
     private boolean mShowText = true;
@@ -67,7 +67,7 @@ public class ActualNumberPicker extends View {
     private boolean mDrawOverControls = true;
 
     private Paint mBarPaint;
-    private RectF mBarBounds = new RectF(0, 0, 0, 0);
+    private final RectF mBarBounds = new RectF(0, 0, 0, 0);
     private int mBarCount = DEFAULT_BAR_COUNT;
     private int mMinBarWidth = 1;
     private int mBarWidth = mMinBarWidth;
@@ -99,8 +99,8 @@ public class ActualNumberPicker extends View {
     private int mSelectionColor = Color.GRAY;
 
     private Handler mHandler;
-    private SparseArray<Drawable> mControlIcons = new SparseArray<>(4);
-    private SparseArray<Drawable> mControlsBacks = new SparseArray<>(4);
+    private final SparseArray<Drawable> mControlIcons = new SparseArray<>(4);
+    private final SparseArray<Drawable> mControlsBacks = new SparseArray<>(4);
 
     private OnValueChangeListener mListener;
 
@@ -117,12 +117,6 @@ public class ActualNumberPicker extends View {
     public ActualNumberPicker(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         init(context, attrs, defStyleAttr, 0);
-    }
-
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    public ActualNumberPicker(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
-        init(context, attrs, defStyleAttr, defStyleRes);
     }
 
     /**
@@ -170,9 +164,7 @@ public class ActualNumberPicker extends View {
         mTextPaint.setAntiAlias(true);
         mTextPaint.setTextAlign(Paint.Align.LEFT);
         mTextPaint.setLinearText(true);
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            mTextPaint.setHinting(Paint.HINTING_ON);
-        }
+        mTextPaint.setHinting(Paint.HINTING_ON);
         mTextPaint.setStyle(Paint.Style.FILL);
         mTextPaint.setColor(textColor);
 
@@ -241,20 +233,19 @@ public class ActualNumberPicker extends View {
      * @param attributes Which typed array to use to get the colors from
      * @param context Which context to use for resources
      */
+    @SuppressLint("UseCompatLoadingForDrawables")
     private void loadControlIcons(@NonNull TypedArray attributes, @NonNull Context context) {
         int controlsColor = attributes.getColor(R.styleable.ActualNumberPicker_controls_color, Color.DKGRAY);
-        // noinspection deprecation
         Drawable arrLeft = context.getResources().getDrawable(R.drawable.ic_keyboard_arrow_left_black_24dp);
         arrLeft = Coloring.get().colorDrawable(context, arrLeft, controlsColor);
         mControlIcons.put(ARR_LEFT, arrLeft);
 
-        // noinspection deprecation
         Drawable arrRight = context.getResources().getDrawable(R.drawable.ic_keyboard_arrow_right_black_24dp);
         arrRight = Coloring.get().colorDrawable(context, arrRight, controlsColor);
         mControlIcons.put(ARR_RIGHT, arrRight);
 
         int fastControlsColor = attributes.getColor(R.styleable.ActualNumberPicker_fast_controls_color, Color.DKGRAY);
-        // noinspection deprecation
+
         Drawable fastArrLeft = context.getResources().getDrawable(R.drawable.ic_keyboard_2arrows_left_black_24dp);
         fastArrLeft = Coloring.get().colorDrawable(context, fastArrLeft, fastControlsColor);
         mControlIcons.put(FAST_ARR_LEFT, fastArrLeft);
@@ -403,10 +394,8 @@ public class ActualNumberPicker extends View {
     @Override
     public void drawableHotspotChanged(float x, float y) {
         super.drawableHotspotChanged(x, y);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            for (int i = 0; i < mControlsBacks.size(); i++) {
-                mControlsBacks.get(mControlsBacks.keyAt(i)).setHotspot(x, y);
-            }
+        for (int i = 0; i < mControlsBacks.size(); i++) {
+            mControlsBacks.get(mControlsBacks.keyAt(i)).setHotspot(x, y);
         }
     }
 
@@ -706,9 +695,7 @@ public class ActualNumberPicker extends View {
 
                 mSelectedControl = selectedControl;
                 if (mSelectedControl != CONTROL_NONE) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        mControlsBacks.get(selectedControl).setHotspot(event.getX(), event.getY());
-                    }
+                    mControlsBacks.get(selectedControl).setHotspot(event.getX(), event.getY());
 
                     mHandler.post(mInvalidator);
                 }
@@ -716,11 +703,9 @@ public class ActualNumberPicker extends View {
                 return true;
             }
             case MotionEvent.ACTION_MOVE: {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    Drawable current = mControlsBacks.get(selectedControl);
-                    if (current != null) { // happens only when [mSelectedControl != CONTROL_NONE] but couldn't find out why
-                        current.setHotspot(event.getX(), event.getY());
-                    }
+                Drawable current = mControlsBacks.get(selectedControl);
+                if (current != null) { // happens only when [mSelectedControl != CONTROL_NONE] but couldn't find out why
+                    current.setHotspot(event.getX(), event.getY());
                 }
 
                 if (mSelectedControl == CONTROL_NONE) {
@@ -976,12 +961,7 @@ public class ActualNumberPicker extends View {
     /**
      * A periodic updater for animations. This should be kept clean, as it forces a call to the {@link #onDraw(Canvas)} method.
      */
-    private Runnable mInvalidator = new Runnable() {
-        @Override
-        public void run() {
-            invalidate();
-        }
-    };
+    private final Runnable mInvalidator = this::invalidate;
 
     @Override
     protected void onDraw(Canvas canvas) {
