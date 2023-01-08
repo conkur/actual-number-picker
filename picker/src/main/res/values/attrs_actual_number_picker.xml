@@ -6,6 +6,7 @@
         <attr name="bars_count" format="integer|reference" />
         <attr name="bar_color" format="color|reference" />
         <attr name="bar_width" format="dimension|reference" />
+        <attr name="min_bar_height" format="string|reference" />
         <attr name="selection_color" format="color|reference" />
         <attr name="draw_over_text" format="boolean|reference" />
         <attr name="draw_over_controls" format="boolean|reference" />
@@ -23,7 +24,8 @@
         <attr name="text_size" format="dimension|reference" />
         <attr name="text_color" format="color|reference" />
 
-        <attr name="value" format="integer|reference" />
+        <attr name="value" format="float|reference" />
+        <attr name="value_adjustment" format="float|reference" />
         <attr name="min_value" format="integer|reference" />
         <attr name="max_value" format="integer|reference" />
 

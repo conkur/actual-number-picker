@@ -107,6 +107,7 @@ Here are some short explanations for the attributes provided by the view. You ca
 - `bars_count`: (**integer**) How many bars to show. Note that the number may be changed by 1 if symmetry issues occur (*ignored if bars are not visible*).
 - `bar_color`: (**color**) Recolors all of the vertical lines to the specified color (*ignored if bars are not visible*).
 - `bar_width`: (**dimension**) How wide should each bar be (*ignored if bars are not visible*).
+- `min_bar_height`: (**string**) Set to `small` to get a sort of 3D effect from the slider (*must be `small` or `large`*).
 - `draw_over_text`: (**boolean**) Whether to show the bars over the text (*ignored if text or bars are not visible*).
 - `draw_over_controls`: (**boolean**) Whether to show the bars over the arrow controls (*ignored if controls or bars are not visible*).
 
@@ -128,6 +129,7 @@ Here are some short explanations for the attributes provided by the view. You ca
 - `min_value`: (**integer**) How low can the value numbers go.
 - `max_value`: (**integer**) How high can the value numbers go.
 - `value`: (**integer**) Set the current value (*must be between `min_value` and `max_value`*).
+- `value_adjustment`: (**float**) Set the numerical value of each arrow movement. e.g. if this is `0.2` then the picker values will go 0.0 -> 0.2, etc. (*must be between `0` and `1`*).
 
 Support
 -------

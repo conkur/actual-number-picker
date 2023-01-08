@@ -4,7 +4,7 @@ package me.angrybyte.numberpicker.demo;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.StrictMode;
-import android.support.v7.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatActivity;
 import android.view.ViewGroup;
 
 import me.angrybyte.numberpicker.listener.OnValueChangeListener;
@@ -19,8 +19,8 @@ public class DemoActivity extends AppCompatActivity implements OnValueChangeList
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_demo);
-        mTestPicker = (ActualNumberPicker) findViewById(R.id.actual_picker2);
-        mContentRoot = (ViewGroup) findViewById(android.R.id.content);
+        mTestPicker = findViewById(R.id.actual_picker2);
+        mContentRoot = findViewById(android.R.id.content);
         mTestPicker.setListener(this);
         enableStrictMode();
     }
@@ -65,7 +65,7 @@ public class DemoActivity extends AppCompatActivity implements OnValueChangeList
     }
 
     @Override
-    public void onValueChanged(int oldValue, int newValue) {
+    public void onValueChanged(double oldValue, double newValue) {
         float percent = (float) newValue / (float) (mTestPicker.getMaxValue() - mTestPicker.getMinValue());
         updateBackgroundColor(percent);
     }

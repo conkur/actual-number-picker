@@ -1,7 +1,7 @@
 
 package me.angrybyte.numberpicker.view;
 
-import android.annotation.TargetApi;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.BlurMaskFilter;
@@ -14,9 +14,10 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Handler;
-import android.support.annotation.IntDef;
-import android.support.annotation.IntRange;
-import android.support.annotation.NonNull;
+import androidx.annotation.FloatRange;
+import androidx.annotation.IntDef;
+import androidx.annotation.IntRange;
+import androidx.annotation.NonNull;
 import android.text.TextPaint;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
@@ -28,6 +29,7 @@ import android.view.WindowManager;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.math.BigDecimal;
 
 import me.angrybyte.numberpicker.BuildConfig;
 import me.angrybyte.numberpicker.Coloring;
@@ -55,8 +57,8 @@ public class ActualNumberPicker extends View {
     private static final int CONTROL_TEXT = 0xAA;
     private static final int[] STATE_NORMAL = new int[] {};
 
-    private Rect mTextBounds = new Rect(0, 0, 0, 0);
-    private Point mTextDimens = new Point(0, 0);
+    private final Rect mTextBounds = new Rect(0, 0, 0, 0);
+    private final Point mTextDimens = new Point(0, 0);
     private TextPaint mTextPaint;
     private float mTextSize = -1.0f;
     private boolean mShowText = true;
@@ -64,9 +66,10 @@ public class ActualNumberPicker extends View {
     private boolean mDrawOverControls = true;
 
     private Paint mBarPaint;
-    private RectF mBarBounds = new RectF(0, 0, 0, 0);
+    private final RectF mBarBounds = new RectF(0, 0, 0, 0);
     private int mBarCount = DEFAULT_BAR_COUNT;
     private int mMinBarWidth = 1;
+    private String mMinBarHeight = "large";
     private int mBarWidth = mMinBarWidth;
     private boolean mShowBars = true;
 
@@ -86,7 +89,8 @@ public class ActualNumberPicker extends View {
 
     private int mMinValue = 0;
     private int mMaxValue = 1000;
-    private int mValue = 50;
+    private double mValue = 50;
+    private double mValueAdjustment = 1.0d; // Set to 0.2 if you want the slider to go 40 -> 40.2 -> 40.4, etc.
 
     @Control
     // one of the constants from the top
@@ -95,8 +99,8 @@ public class ActualNumberPicker extends View {
     private int mSelectionColor = Color.GRAY;
 
     private Handler mHandler;
-    private SparseArray<Drawable> mControlIcons = new SparseArray<>(4);
-    private SparseArray<Drawable> mControlsBacks = new SparseArray<>(4);
+    private final SparseArray<Drawable> mControlIcons = new SparseArray<>(4);
+    private final SparseArray<Drawable> mControlsBacks = new SparseArray<>(4);
 
     private OnValueChangeListener mListener;
 
@@ -113,12 +117,6 @@ public class ActualNumberPicker extends View {
     public ActualNumberPicker(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         init(context, attrs, defStyleAttr, 0);
-    }
-
-    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
-    public ActualNumberPicker(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
-        init(context, attrs, defStyleAttr, defStyleRes);
     }
 
     /**
@@ -166,9 +164,7 @@ public class ActualNumberPicker extends View {
         mTextPaint.setAntiAlias(true);
         mTextPaint.setTextAlign(Paint.Align.LEFT);
         mTextPaint.setLinearText(true);
-        if (Build.VERSION.SDK_INT > Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            mTextPaint.setHinting(Paint.HINTING_ON);
-        }
+        mTextPaint.setHinting(Paint.HINTING_ON);
         mTextPaint.setStyle(Paint.Style.FILL);
         mTextPaint.setColor(textColor);
 
@@ -185,10 +181,14 @@ public class ActualNumberPicker extends View {
             throw new RuntimeException("Cannot use max_value " + mMaxValue + " because the min_value is " + mMinValue);
         }
 
-        mValue = attributes.getInt(R.styleable.ActualNumberPicker_value, (mMaxValue + mMinValue) / 2);
+        mValue = attributes.getFloat(R.styleable.ActualNumberPicker_value, mMinValue);
         if (mValue < mMinValue || mValue > mMaxValue) {
             throw new RuntimeException("Cannot use value " + mValue + " because it is out of range");
         }
+
+        // You can't set an attribute to a double. So we grab the float and round it to the nearest
+        float valueAdjustmentFloat = attributes.getFloat(R.styleable.ActualNumberPicker_value_adjustment, 1f);
+        setValueAdjustment(valueAdjustmentFloat);
 
         mBarCount = attributes.getInteger(R.styleable.ActualNumberPicker_bars_count, DEFAULT_BAR_COUNT);
         if (mBarCount < 3) {
@@ -201,6 +201,14 @@ public class ActualNumberPicker extends View {
             mBarWidth = mMinBarWidth;
         }
 
+        mMinBarHeight = "large";
+        if (attributes.hasValue(R.styleable.ActualNumberPicker_min_bar_height)) {
+            mMinBarHeight = attributes.getString(R.styleable.ActualNumberPicker_min_bar_height);
+        }
+        if (!mMinBarHeight.equals("large") && !mMinBarHeight.equals("small")) {
+            throw new RuntimeException("Cannot use value " + mMinBarHeight + ". Only 'small' and 'large' are accepted");
+        }
+
         loadControlIcons(attributes, context);
 
         attributes.recycle();
@@ -209,11 +217,7 @@ public class ActualNumberPicker extends View {
         WindowManager manager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
         int density; // LDPI is 120
         DisplayMetrics metrics = new DisplayMetrics();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-            manager.getDefaultDisplay().getRealMetrics(metrics);
-        } else {
-            manager.getDefaultDisplay().getMetrics(metrics);
-        }
+        manager.getDefaultDisplay().getRealMetrics(metrics);
         density = metrics.densityDpi;
         mDensityFactor = density / DisplayMetrics.DENSITY_LOW; // will be 1, 1.2, 1.5... etc
 
@@ -233,20 +237,19 @@ public class ActualNumberPicker extends View {
      * @param attributes Which typed array to use to get the colors from
      * @param context Which context to use for resources
      */
+    @SuppressLint("UseCompatLoadingForDrawables")
     private void loadControlIcons(@NonNull TypedArray attributes, @NonNull Context context) {
         int controlsColor = attributes.getColor(R.styleable.ActualNumberPicker_controls_color, Color.DKGRAY);
-        // noinspection deprecation
         Drawable arrLeft = context.getResources().getDrawable(R.drawable.ic_keyboard_arrow_left_black_24dp);
         arrLeft = Coloring.get().colorDrawable(context, arrLeft, controlsColor);
         mControlIcons.put(ARR_LEFT, arrLeft);
 
-        // noinspection deprecation
         Drawable arrRight = context.getResources().getDrawable(R.drawable.ic_keyboard_arrow_right_black_24dp);
         arrRight = Coloring.get().colorDrawable(context, arrRight, controlsColor);
         mControlIcons.put(ARR_RIGHT, arrRight);
 
         int fastControlsColor = attributes.getColor(R.styleable.ActualNumberPicker_fast_controls_color, Color.DKGRAY);
-        // noinspection deprecation
+
         Drawable fastArrLeft = context.getResources().getDrawable(R.drawable.ic_keyboard_2arrows_left_black_24dp);
         fastArrLeft = Coloring.get().colorDrawable(context, fastArrLeft, fastControlsColor);
         mControlIcons.put(FAST_ARR_LEFT, fastArrLeft);
@@ -276,7 +279,7 @@ public class ActualNumberPicker extends View {
     /**
      * @return Current number value on this picker
      */
-    public int getValue() {
+    public double getValue() {
         return mValue;
     }
 
@@ -395,10 +398,8 @@ public class ActualNumberPicker extends View {
     @Override
     public void drawableHotspotChanged(float x, float y) {
         super.drawableHotspotChanged(x, y);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            for (int i = 0; i < mControlsBacks.size(); i++) {
-                mControlsBacks.get(mControlsBacks.keyAt(i)).setHotspot(x, y);
-            }
+        for (int i = 0; i < mControlsBacks.size(); i++) {
+            mControlsBacks.get(mControlsBacks.keyAt(i)).setHotspot(x, y);
         }
     }
 
@@ -579,11 +580,11 @@ public class ActualNumberPicker extends View {
     /**
      * Forces a new value onto the view. This will notify the listener and move the wheel to its starting position.<br>
      * <b>Note</b>: The value must be between {@link #mMinValue} and {@link #mMaxValue}.
-     * 
+     *
      * @param newValue Which value to set
      */
-    public void setValue(int newValue) {
-        int oldValue = mValue;
+    public void setValue(double newValue) {
+        double oldValue = mValue;
         mDelta = 0;
         mValue = newValue;
         mLastX = Float.MAX_VALUE;
@@ -593,23 +594,33 @@ public class ActualNumberPicker extends View {
         }
     }
 
+    public void setValueAdjustment(float newValueAdjustment) {
+        if (newValueAdjustment < 0 || newValueAdjustment > 1) {
+            throw new RuntimeException("Cannot use value " + mValueAdjustment + " because it is must be between 0 and 1");
+        }
+        mValueAdjustment = Math.round(newValueAdjustment * 100.0) / 100.0;
+        if ((1.0 * 100) % (mValueAdjustment * 100) != 0) {
+            throw new RuntimeException("Cannot use value " + mValueAdjustment + " because there must be no remainder when dividing 1 by the value adjustment");
+        }
+    }
+
     /**
      * Invoked by the view when some of the controls are clicked (touched with ACTION_DOWN and ACTION_UP).
      *
      * @param which The control constant, any of the {@link Control}s
      */
     private void onControlClicked(@Control int which) {
-        int oldValue = mValue;
+        double oldValue = mValue;
         int changeX = 0;
 
         switch (which) {
             case ARR_LEFT: {
-                mValue--;
+                mValue = BigDecimal.valueOf(mValue).subtract(BigDecimal.valueOf(mValueAdjustment)).doubleValue();
                 changeX = -mBarWidth;
                 break;
             }
             case ARR_RIGHT: {
-                mValue++;
+                mValue = BigDecimal.valueOf(mValue).add(BigDecimal.valueOf(mValueAdjustment)).doubleValue();
                 changeX = +mBarWidth;
                 break;
             }
@@ -639,15 +650,12 @@ public class ActualNumberPicker extends View {
     }
 
     /**
-     * Calls {@link OnValueChangeListener#onValueChanged(int, int)}, but posts it to the main looper.
+     * Calls {@link OnValueChangeListener#onValueChanged(double, double)}, but posts it to the main looper.
      */
-    private void notifyListener(final int oldValue, final int newValue) {
-        mHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                if (mListener != null) {
-                    mListener.onValueChanged(oldValue, newValue);
-                }
+    private void notifyListener(final double oldValue, final double newValue) {
+        mHandler.post(() -> {
+            if (mListener != null) {
+                mListener.onValueChanged(oldValue, newValue);
             }
         });
     }
@@ -691,9 +699,7 @@ public class ActualNumberPicker extends View {
 
                 mSelectedControl = selectedControl;
                 if (mSelectedControl != CONTROL_NONE) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        mControlsBacks.get(selectedControl).setHotspot(event.getX(), event.getY());
-                    }
+                    mControlsBacks.get(selectedControl).setHotspot(event.getX(), event.getY());
 
                     mHandler.post(mInvalidator);
                 }
@@ -701,17 +707,15 @@ public class ActualNumberPicker extends View {
                 return true;
             }
             case MotionEvent.ACTION_MOVE: {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    Drawable current = mControlsBacks.get(selectedControl);
-                    if (current != null) { // happens only when [mSelectedControl != CONTROL_NONE] but couldn't find out why
-                        current.setHotspot(event.getX(), event.getY());
-                    }
+                Drawable current = mControlsBacks.get(selectedControl);
+                if (current != null) { // happens only when [mSelectedControl != CONTROL_NONE] but couldn't find out why
+                    current.setHotspot(event.getX(), event.getY());
                 }
 
                 if (mSelectedControl == CONTROL_NONE) {
                     float percent = event.getX() / (float) mWidth;
-                    int oldValue = mValue;
-                    mValue = (int) Math.floor(percent * (mMaxValue - mMinValue)) + mMinValue;
+                    double oldValue = mValue;
+                    mValue = (float) Math.floor(percent * (mMaxValue - mMinValue)) + mMinValue;
                     normalizeValue();
 
                     if (mValue != oldValue) {
@@ -834,7 +838,7 @@ public class ActualNumberPicker extends View {
      * @param factor Scaling factor (must be a positive integer)
      * @return The scaled value, <b>{@code what}</b> x <b>{@code factor}</b>
      */
-    private int scale(int what, @IntRange(from = 0) double factor) {
+    private int scale(int what, @FloatRange(from = 0) double factor) {
         return (int) (Math.floor((double) what * factor));
     }
 
@@ -961,24 +965,27 @@ public class ActualNumberPicker extends View {
     /**
      * A periodic updater for animations. This should be kept clean, as it forces a call to the {@link #onDraw(Canvas)} method.
      */
-    private Runnable mInvalidator = new Runnable() {
-        @Override
-        public void run() {
-            invalidate();
-        }
-    };
+    private final Runnable mInvalidator = this::invalidate;
 
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
 
         if (mShowText) {
-            String value = String.valueOf((int) Math.floor(mValue));
+            // Show the decimal place only if the user wants decimal value adjustments
+            String value;
+            if (mValueAdjustment == 1) {
+                value = String.valueOf((int) Math.floor(mValue));
+            } else {
+                value = String.valueOf(mValue);
+            }
+
             // this will save dimensions to mTextDimens
             measureText(value);
             int x = mWidth / 2 - mTextDimens.x / 2;
             int y = mHeight / 2 + mTextDimens.y / 2;
             canvas.drawText(value, x, y, mTextPaint);
+
             // update bounds to re-use later
             mTextBounds.set(x, y, x + mTextBounds.width(), y + mTextBounds.height());
         }
@@ -988,7 +995,8 @@ public class ActualNumberPicker extends View {
             int opacity, barH;
             float linearX, insideX, x, y;
             int maxBarH = (int) Math.floor(0.5f * mHeight);
-            int minBarH = (int) Math.floor(maxBarH * 0.95f);
+            float minBarHeightRatio = (mMinBarHeight.equals("large") ? 0.95f : 0.55f);
+            int minBarH = (int) Math.floor(maxBarH * minBarHeightRatio);
             int minOpacity = 50;
             for (int i = 0; i <= mBarCount; i++) {
                 // calculate bar X coordinate
